@@ -1,0 +1,19 @@
+# 個人情報データ（データベース・購読フィード・記事など）
+data/
+*.db
+*.db-shm
+*.db-wal
+
+# 依存関係
+node_modules/
+
+# 環境変数・秘密情報
+.env
+.env.*
+*.local
+*credential*
+
+# ログ・一時ファイル
+*.log
+*.tmp
+.DS_Store
