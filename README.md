@@ -5,6 +5,8 @@
 - サーバー: Node.js + Fastify + better-sqlite3
 - 自動更新: 30分ごとに全フィードを取得（node-cron）
 
+<img width="1024" height="558" alt="Image" src="https://github.com/user-attachments/assets/65455046-c7d6-4bbb-93f5-da13eef3fa50" />
+
 ## インストール
 
 ### 必要条件
@@ -32,13 +34,6 @@ sudo bash install-selfrss1.sh
 ```bash
 sudo bash install-selfrss1.sh /opt/selfrss 8080
 ```
-
-> このリポジトリは非公開（Private）のため、インストール時に認証トークンが必要です。
-> `GITHUB_TOKEN` に Personal Access Token（repo 権限）を指定して実行してください。
->
-> ```bash
-> GITHUB_TOKEN=ghp_xxxxxxxxxxxx sudo bash install-selfrss1.sh
-> ```
 
 ### インストール後の確認
 
@@ -90,4 +85,5 @@ npm run dev
 
 ## ライセンス
 
-個人利用向けのツールです。
+このプロジェクトは [MIT License](LICENSE) の下で公開されています。
+
