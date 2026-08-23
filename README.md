@@ -40,10 +40,34 @@ sudo bash install-selfrss1.sh /opt/selfrss 8080
 ```bash
 # サービスの状態を確認
 systemctl status selfrss
+```
 
-# アクセス
-# http://<サーバーのIP>:3347
-# 例: http://192.168.1.100:3347
+アクセスURL:
+
+- **Tailscale 環境の場合（推奨）**: インストーラが自動で Tailscale Serve を設定し、HTTPS で公開します。
+  ```
+  https://<hostname>.<tailnet>.ts.net:3347
+  例: https://myserver.tail1234.ts.net:3347
+  ```
+  アプリ本体は `127.0.0.1` のみで待機し、TLS 終端は tailscaled が行います（immich の tailscale serve 版と同じ構成）。
+
+- **Tailscale 無しの場合**: HTTP で公開されます。
+  ```bash
+  # http://<サーバーのIP>:3347
+  # 例: http://192.168.1.100:3347
+  ```
+
+Tailscale で HTTPS 化するには事前に以下が必要です:
+
+1. `tailscale up` 済みであること
+2. Tailscale 管理コンソールで **MagicDNS** と **HTTPS Certificates** を有効化済みであること
+   （https://login.tailscale.com/admin/dns）
+
+手動で設定する場合:
+
+```bash
+sudo tailscale serve --bg --https=3347 http://127.0.0.1:3347
+tailscale serve status   # 確認
 ```
 
 データベースと購読フィードは `/opt/selfrss/data/selfrss.db` に保存されます。

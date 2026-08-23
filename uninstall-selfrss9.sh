@@ -1,9 +1,10 @@
 #!/bin/bash
 # selfrss アンインストーラ
-# 使い方: sudo bash uninstall-selfrss9.sh [インストール先]
-# デフォルト: /opt/selfrss
+# 使い方: sudo bash uninstall-selfrss9.sh [インストール先] [ポート]
+# デフォルト: /opt/selfrss, ポート 3347
 set -e
 INSTALL_DIR="${1:-/opt/selfrss}"
+PORT="${2:-3347}"
 SERVICE_NAME="selfrss"
 
 if [ "$EUID" -ne 0 ]; then echo "エラー: sudo で実行してください"; exit 1; fi
@@ -11,6 +12,13 @@ if [ "$EUID" -ne 0 ]; then echo "エラー: sudo で実行してください"; e
 echo "=== selfrss アンインストーラ ==="
 echo "インストール先: $INSTALL_DIR"
 echo ""
+
+# ── Tailscale Serve の HTTPS 公開を解除 ──
+if command -v tailscale &>/dev/null && tailscale serve status &>/dev/null 2>&1; then
+  echo "--- Tailscale Serve の設定を解除中 ---"
+  tailscale serve --https=$PORT off >/dev/null 2>&1 || true
+  echo "serve 設定を解除しました"
+fi
 
 if systemctl list-unit-files | grep -q "^${SERVICE_NAME}.service"; then
   echo "--- サービスを停止・無効化中 ---"

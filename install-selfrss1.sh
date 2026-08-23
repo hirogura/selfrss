@@ -12,6 +12,12 @@ SERVICE_NAME="selfrss"
 REPO_URL="https://github.com/hirogura/selfrss.git"
 BRANCH="main"
 
+# ── Tailscale 検出（あれば Tailscale Serve で HTTPS 化する）──
+TS_HTTPS=0
+if command -v tailscale &>/dev/null && tailscale status &>/dev/null; then
+  TS_HTTPS=1
+fi
+
 if [ -n "$GITHUB_TOKEN" ]; then
   REPO_URL="https://${GITHUB_TOKEN}@github.com/hirogura/selfrss.git"
 fi
@@ -20,6 +26,7 @@ echo "=== selfrss インストーラ v1 (GitHub版) ==="
 echo "インストール先: $INSTALL_DIR"
 echo "ポート: $PORT"
 echo "ソース: $REPO_URL"
+if [ "$TS_HTTPS" -eq 1 ]; then echo "HTTPS: Tailscale Serve (https://<hostname>.ts.net:${PORT})"; else echo "HTTPS: 無効（tailscale 未接続のため HTTP のみ）"; fi
 echo ""
 
 if [ "$EUID" -ne 0 ]; then echo "エラー: sudo で実行してください"; exit 1; fi
@@ -95,6 +102,10 @@ if [ ! -d "node_modules" ] || [ package.json -nt node_modules/.package-lock.json
 fi
 
 echo "--- systemd サービスを作成中 ---"
+# Tailscale Serve が TLS 終端用に <tailscale IP>:PORT をバインドできるよう、
+# アプリは 127.0.0.1 のみにバインドする（immich の tailscale serve 版と同じ構成）
+HOST_ENV=""
+if [ "$TS_HTTPS" -eq 1 ]; then HOST_ENV="Environment=HOST=127.0.0.1"; fi
 cat > /etc/systemd/system/$SERVICE_NAME.service << SVCEOF
 [Unit]
 Description=selfrss - Self-hosted RSS Reader
@@ -108,6 +119,7 @@ ExecStart=/usr/bin/node server/index.js
 Restart=on-failure
 RestartSec=5
 Environment=PORT=$PORT
+${HOST_ENV}
 Environment=NODE_ENV=production
 
 [Install]
@@ -121,14 +133,37 @@ systemctl start "$SERVICE_NAME"
 TS_IP=$(tailscale ip -4 2>/dev/null || echo "N/A")
 TS_HOSTNAME=$(tailscale status --json 2>/dev/null | grep -o '"DNSName":"[^"]*"' | head -1 | cut -d'"' -f4 || echo "")
 if [ -z "$TS_HOSTNAME" ]; then TS_HOSTNAME=$(hostname); fi
+TS_DOMAIN="${TS_HOSTNAME%.}"
+
+# ── Tailscale Serve で HTTPS 公開（冪等）──
+if [ "$TS_HTTPS" -eq 1 ]; then
+  echo "--- Tailscale Serve (HTTPS) を設定中 ---"
+  tailscale serve --https=$PORT off >/dev/null 2>&1 || true
+  if tailscale serve --bg --https=$PORT "http://127.0.0.1:$PORT"; then
+    echo "  ⏳ HTTPS 応答を待機中（最大60秒・初回は証明書発行に時間がかかります）..."
+    for i in $(seq 1 12); do
+      HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 5 "https://${TS_DOMAIN}:${PORT}/" 2>/dev/null || echo "000")
+      if [ "$HTTP_CODE" != "000" ]; then echo "  HTTPS OK (HTTP ${HTTP_CODE})"; break; fi
+      sleep 5
+    done
+  else
+    echo "警告: tailscale serve の設定に失敗しました（HTTPS 無しで動作します）"
+  fi
+fi
 
 sleep 2
 if systemctl is-active --quiet "$SERVICE_NAME"; then
   echo ""
   echo "=== selfrss のインストールが完了しました ==="
   echo ""
-  echo "  Web UI : http://${TS_IP}:${PORT}"
-  echo "  Web UI : http://${TS_HOSTNAME%%.*}:${PORT}  (MagicDNS)"
+  if [ "$TS_HTTPS" -eq 1 ]; then
+    echo "  Web UI : https://${TS_DOMAIN}:${PORT}  (Tailscale Serve / HTTPS)"
+  fi
+  echo "  Web UI : http://localhost:${PORT}"
+  if [ "$TS_HTTPS" -ne 1 ]; then
+    echo "  Web UI : http://${TS_IP}:${PORT}"
+    echo "  Web UI : http://${TS_HOSTNAME%%.*}:${PORT}  (MagicDNS)"
+  fi
   echo ""
   echo "  インストール先: ${INSTALL_DIR}"
   echo ""
