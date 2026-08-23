@@ -120,6 +120,8 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);height:100vh
 #content-toolbar-nav{width:1px;height:16px;background:var(--border);margin:0 2px;flex-shrink:0}
 .toolbar-nav-btn{background:none;border:1px solid var(--border);color:var(--text-muted);cursor:pointer;padding:2px 6px;border-radius:var(--radius);font-size:11px;font-weight:500;transition:background .15s,color .15s;line-height:1.2;font-family:var(--font);white-space:nowrap}
 .toolbar-nav-btn:hover{background:var(--hover);color:var(--text)}
+.toolbar-nav-btn:disabled{opacity:.5;cursor:wait}
+.version-label{font-size:11px;font-weight:600;color:var(--text-muted);padding:2px 4px;white-space:nowrap}
 .auto-scroll-btn.active{background:var(--accent);color:var(--accent-text);border-color:var(--accent)}
 @media(max-width:768px){.article-nav-bar{display:flex!important}}
 .loading{text-align:center;padding:40px;color:var(--text-muted);font-size:13px}

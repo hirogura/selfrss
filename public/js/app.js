@@ -507,4 +507,38 @@ $('#article-list').addEventListener('scroll', function() {
   }
 });
 
+async function waitForServer(maxMs) {
+  var deadline = Date.now() + (maxMs || 60000);
+  await new Promise(function(r){ setTimeout(r, 2000); });
+  while (Date.now() < deadline) {
+    try { var res = await fetch('/api/version', { cache: 'no-store' }); if (res.ok) return true; } catch(e){}
+    await new Promise(function(r){ setTimeout(r, 1000); });
+  }
+  return false;
+}
+
+$('#btn-admin-restart').addEventListener('click', async function() {
+  var b = this;
+  if (!confirm('selfrss サービスを再起動しますか？')) return;
+  b.disabled = true; b.textContent = '再起動中…';
+  try { await api('/admin/restart', { method: 'POST' }); } catch(e){}
+  await waitForServer();
+  location.reload();
+});
+
+$('#btn-admin-update').addEventListener('click', async function() {
+  var b = this;
+  if (!confirm('GitHub から最新版を取得してアップデートしますか？\n完了後、サービスは自動で再起動されます。')) return;
+  b.disabled = true; b.textContent = '更新中…';
+  try {
+    var res = await api('/admin/update', { method: 'POST' });
+    if (res && res.error) { alert('アップデートに失敗しました\n' + res.error); b.disabled = false; b.textContent = 'アップデート'; return; }
+  } catch(e){}
+  b.textContent = '再起動中…';
+  await waitForServer(120000);
+  location.reload();
+});
+
+api('/version').then(function(v){ if (v && v.version) $('#app-version').textContent = 'v.' + v.version; }).catch(function(){});
+
 loadFeeds();loadStats();setView('all');

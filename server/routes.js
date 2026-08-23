@@ -2,6 +2,29 @@ import db from './db.js';
 import { fetchFeed, fetchAllFeeds } from './feed-fetcher.js';
 import RssParser from 'rss-parser';
 import { JSDOM } from 'jsdom';
+import { execFile } from 'child_process';
+import { createRequire } from 'module';
+import { join, dirname } from 'path';
+import { fileURLToPath } from 'url';
+
+const require = createRequire(import.meta.url);
+const APP_VERSION = require('../package.json').version;
+const APP_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
+const SERVICE_NAME = process.env.SELFRSS_SERVICE || 'selfrss';
+const GIT_BRANCH = process.env.SELFRSS_BRANCH || 'main';
+
+function sh(cmd, args) {
+  return new Promise((resolve, reject) => {
+    execFile(cmd, args, { cwd: APP_ROOT, timeout: 600000 }, (err, stdout, stderr) => {
+      if (err) reject(new Error(String(stderr || err.message).trim()));
+      else resolve(String(stdout));
+    });
+  });
+}
+
+function restartService(delayMs = 800) {
+  setTimeout(() => { execFile('systemctl', ['restart', SERVICE_NAME], () => {}); }, delayMs);
+}
 
 const parser = new RssParser({ timeout: 15000, headers: { 'User-Agent': 'selfrss/1.0' } });
 
@@ -79,6 +102,33 @@ function parseOpml(xml) {
 }
 
 export default async function routes(app) {
+  const noBody = { schema: { consumes: [] } };
+
+  app.get('/version', async () => ({ version: APP_VERSION }));
+
+  app.post('/admin/restart', noBody, async () => {
+    restartService();
+    return { ok: true };
+  });
+
+  app.post('/admin/update', noBody, async (req, reply) => {
+    try {
+      await sh('git', ['fetch', 'origin', GIT_BRANCH]);
+      const local = (await sh('git', ['rev-parse', 'HEAD'])).trim();
+      const remote = (await sh('git', ['rev-parse', 'origin/' + GIT_BRANCH])).trim();
+      if (local === remote) return { ok: true, updated: false, message: 'すでに最新版です' };
+      await sh('git', ['reset', '--hard', 'origin/' + GIT_BRANCH]);
+      const changed = (await sh('git', ['diff', '--name-only', local, remote])).split('\n');
+      let depsUpdated = false;
+      if (changed.includes('package.json') || changed.includes('package-lock.json')) {
+        await sh('npm', ['install', '--omit=dev']);
+        depsUpdated = true;
+      }
+      restartService();
+      return { ok: true, updated: true, message: 'アップデート完了' + (depsUpdated ? '（依存関係も更新）' : '') + '。サービスを再起動します' };
+    } catch (err) { return reply.code(500).send({ error: err.message }); }
+  });
+
   app.post('/opml/import', async (req, reply) => {
     const { opml } = req.body;
     if (!opml) return reply.code(400).send({ error: 'OPML content required' });
@@ -163,7 +213,6 @@ export default async function routes(app) {
     return a || { error: 'Not found' };
   });
 
-  const noBody = { schema: { consumes: [] } };
   app.put('/articles/:id/read', noBody, async (req) => { db.prepare('UPDATE articles SET is_read = 1 WHERE id = ?').run(req.params.id); return { ok: true }; });
   app.put('/articles/:id/unread', noBody, async (req) => { db.prepare('UPDATE articles SET is_read = 0 WHERE id = ?').run(req.params.id); return { ok: true }; });
   app.put('/articles/:id/star', noBody, async (req) => { db.prepare('UPDATE articles SET is_starred = 1 WHERE id = ?').run(req.params.id); return { ok: true }; });
