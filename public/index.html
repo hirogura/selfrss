@@ -43,10 +43,6 @@
           <button id="btn-delete-feed" class="icon-btn" title="削除" style="display:none"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>
           <input type="search" id="search-input" placeholder="検索..." class="search-input">
           <button id="btn-mark-all-read" class="icon-btn" title="全て既読にする"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg></button>
-          <span class="width-separator"></span>
-          <button id="btn-admin-update" class="toolbar-nav-btn" title="GitHubから最新版を取得してアップデート">アップデート</button>
-          <button id="btn-admin-restart" class="toolbar-nav-btn" title="selfrssサービスを再起動">再起動</button>
-          <span id="app-version" class="version-label"></span>
         </div>
       </div>
       <div id="article-list" class="article-list"></div>
@@ -70,6 +66,10 @@
           <button id="btn-auto-scroll" class="toolbar-nav-btn auto-scroll-btn" title="スクロールで次へ（ON/OFF切替）">▼</button>
           <button id="btn-mobile-prev" class="toolbar-nav-btn" title="前の記事">← 前</button>
           <button id="btn-mobile-next" class="toolbar-nav-btn" title="次の未読">次 →</button>
+          <span id="content-toolbar-admin" class="width-separator"></span>
+          <button id="btn-admin-update" class="toolbar-nav-btn" title="GitHubから最新版を取得してアップデート">アップデート</button>
+          <button id="btn-admin-restart" class="toolbar-nav-btn" title="selfrssサービスを再起動">再起動</button>
+          <span id="app-version" class="version-label"></span>
         </div>
       </div>
       <div id="content-placeholder" class="content-placeholder">
