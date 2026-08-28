@@ -13,6 +13,7 @@ let searchTimeout = null;
 let compactMode = localStorage.getItem('selfrss-compact') === '1';
 let sidebarVisible = localStorage.getItem('selfrss-sidebar') !== '0';
 let articleWidth = localStorage.getItem('selfrss-article-width') || '';
+let sidebarNarrow = localStorage.getItem('selfrss-sidebar-narrow') === '1';
 let hideRead = localStorage.getItem('selfrss-hide-read') === '1';
 let autoScrollNext = localStorage.getItem('selfrss-auto-scroll') === '1';
 
@@ -223,7 +224,7 @@ function applyArticleWidth() {
   var navBar = $('#article-nav-bar');
   $$('.width-btn').forEach(function(b){b.classList.toggle('active', b.dataset.width === articleWidth)});
   if (articleWidth) {
-    var sidebarW = ($('#sidebar').style.display === 'none') ? 0 : 260;
+    var sidebarW = ($('#sidebar').style.display === 'none') ? 0 : (sidebarNarrow ? 130 : 260);
     var avail = window.innerWidth - sidebarW;
     var base = Math.min(avail, 420);
     pane.style.width = Math.round(base * parseInt(articleWidth) / 100) + 'px';
@@ -272,8 +273,16 @@ $('#btn-toggle-sidebar') && $('#btn-toggle-sidebar').addEventListener('click', f
 $('#btn-back') && $('#btn-back').addEventListener('click', function(){$('#content-pane').classList.remove('show')});
 $('#btn-theme').addEventListener('click', toggleTheme);
 $('#btn-toggle-sidebar-desktop') && $('#btn-toggle-sidebar-desktop').addEventListener('click', function(){sidebarVisible=!sidebarVisible;localStorage.setItem('selfrss-sidebar',sidebarVisible?'1':'0');$('#sidebar').style.display=sidebarVisible?'':'none';$('#btn-toggle-sidebar-desktop').classList.toggle('active',sidebarVisible);applyArticleWidth()});
+$('#btn-sidebar-half') && $('#btn-sidebar-half').addEventListener('click', function(){
+  sidebarNarrow=!sidebarNarrow;
+  localStorage.setItem('selfrss-sidebar-narrow',sidebarNarrow?'1':'0');
+  $('#sidebar').classList.toggle('sidebar-narrow',sidebarNarrow);
+  this.classList.toggle('active',sidebarNarrow);
+  applyArticleWidth();
+});
 $('#btn-view-mode') && $('#btn-view-mode').addEventListener('click', function(){compactMode=!compactMode;localStorage.setItem('selfrss-compact',compactMode?'1':'0');$('#btn-view-mode').innerHTML=compactMode?'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>':'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>';setView(currentView)});
 if (!sidebarVisible) { $('#sidebar').style.display='none'; var bsd=$('#btn-toggle-sidebar-desktop');if(bsd)bsd.classList.remove('active'); }
+if (sidebarNarrow) { $('#sidebar').classList.add('sidebar-narrow'); var bh=$('#btn-sidebar-half'); if(bh)bh.classList.add('active'); }
 if (compactMode) { var vm=$('#btn-view-mode');if(vm)vm.innerHTML='<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>'; }
 
 $('#btn-add-feed').addEventListener('click', async function() {
