@@ -241,7 +241,8 @@ export default async function routes(app) {
     }
     opml += '  </body>\n</opml>';
     reply.header('Content-Type', 'application/xml; charset=utf-8');
-    reply.header('Content-Disposition', 'attachment; filename="selfrss-export.opml"');
+    const dateStr = new Date().toISOString().slice(0, 10);
+    reply.header('Content-Disposition', 'attachment; filename="selfrss-export-' + dateStr + '.opml"');
     return reply.send(opml);
   });
 }
