@@ -477,8 +477,18 @@ $('#btn-hide-read').addEventListener('click', function(){
   hideRead = !hideRead;
   localStorage.setItem('selfrss-hide-read', hideRead ? '1' : '0');
   this.classList.toggle('active', hideRead);
-  setView(currentView);
+  reloadCurrentView();
 });
+function reloadCurrentView() {
+  var p = {};
+  if (currentSearchQuery) { p.search = currentSearchQuery; }
+  else if (currentView === 'feed') p.feed_id = currentFeedId;
+  else if (currentView === 'folder') p.folder_id = currentFolderId;
+  else if (currentView === 'unread') p.unread = '1';
+  else if (currentView === 'starred') p.starred = '1';
+  renderContent(null); currentArticleId = null;
+  loadArticles(p);
+}
 if (hideRead) { var hr=$('#btn-hide-read'); if(hr) hr.classList.add('active'); }
 $('#btn-prev-article').addEventListener('click', navigatePrevArticle);
 $('#btn-next-unread').addEventListener('click', navigateNextUnread);
