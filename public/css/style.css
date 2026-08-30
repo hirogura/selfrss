@@ -5,7 +5,9 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);height:100vh
 #app{display:flex;height:100vh}
 .sidebar{width:var(--sidebar-width);min-width:var(--sidebar-width);background:var(--bg-sidebar);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;transition:transform .2s}
 .sidebar-header{display:flex;align-items:center;justify-content:space-between;padding:8px 16px;border-bottom:1px solid var(--border);min-height:var(--header-height)}
-.logo{font-size:18px;font-weight:700;color:var(--accent)}
+.sidebar-brand{display:flex;flex-direction:column;gap:1px;min-width:0;line-height:1.2}
+.sidebar-brand .logo{font-size:18px;font-weight:700;color:var(--accent)}
+.sidebar-brand .version-label{font-size:10px;font-weight:500;color:var(--text-muted);padding:0;white-space:nowrap}
 .sidebar-actions{display:flex;gap:4px}
 .sidebar-stats{padding:8px 16px;font-size:12px;color:var(--text-muted);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px}
 .sidebar-stats-title{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
