@@ -114,6 +114,7 @@ function appendArticles(articles) {
 
 function renderContent(article) {
   currentArticleData = article;
+  var navTitle = $('#content-nav-title'); if (navTitle) navTitle.textContent = article ? article.title : '';
   if (!article) { $('#content-placeholder').style.display = 'flex'; $('#content-view').style.display = 'none'; return; }
   $('#content-placeholder').style.display = 'none'; $('#content-view').style.display = 'flex'; $('#content-pane').scrollTop = 0;
   $('#content-title').textContent = article.title;
