@@ -132,7 +132,8 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);height:100vh
 .toolbar-nav-btn:hover{background:var(--hover);color:var(--text)}
 .toolbar-nav-btn:disabled{opacity:.5;cursor:wait}
 .version-label{font-size:11px;font-weight:600;color:var(--text-muted);padding:2px 4px;white-space:nowrap}
-.auto-scroll-btn.active{background:var(--accent);color:var(--accent-text);border-color:var(--accent)}
+.auto-scroll-btn.active,.hide-related-btn.active{background:var(--accent);color:var(--accent-text);border-color:var(--accent)}
+.hide-related-btn{display:flex;align-items:center;justify-content:center}
 @media(max-width:768px){.article-nav-bar{display:flex!important}}
 .loading{text-align:center;padding:40px;color:var(--text-muted);font-size:13px}
 .empty-state{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:60px 20px;color:var(--text-muted);gap:12px}

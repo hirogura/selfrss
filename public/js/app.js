@@ -16,6 +16,8 @@ let articleWidth = localStorage.getItem('selfrss-article-width') || '';
 let sidebarNarrow = localStorage.getItem('selfrss-sidebar-narrow') === '1';
 let hideRead = localStorage.getItem('selfrss-hide-read') === '1';
 let autoScrollNext = localStorage.getItem('selfrss-auto-scroll') === '1';
+let hideRelated = localStorage.getItem('selfrss-hide-related') === '1';
+let currentArticleData = null;
 
 async function api(path, opts = {}) {
   const headers = opts.body ? { 'Content-Type': 'application/json' } : {};
@@ -111,6 +113,7 @@ function appendArticles(articles) {
 }
 
 function renderContent(article) {
+  currentArticleData = article;
   if (!article) { $('#content-placeholder').style.display = 'flex'; $('#content-view').style.display = 'none'; return; }
   $('#content-placeholder').style.display = 'none'; $('#content-view').style.display = 'flex'; $('#content-pane').scrollTop = 0;
   $('#content-title').textContent = article.title;
@@ -119,6 +122,7 @@ function renderContent(article) {
   $('#content-date').textContent = formatDate(article.published_at);
   var body = article.content || article.summary || '<p>コンテンツがありません。</p>';
   $('#content-body').innerHTML = '<div class="prose">' + markdownToHtml(body) + '</div>';
+  applyHideRelated();
   updateStarButton(article.is_starred);
   $('#btn-open-original').onclick = function(){ window.open(article.url, '_blank'); };
 }
@@ -218,6 +222,49 @@ function esc(s) { if (!s) return ''; return s.replace(/&/g, '&amp;').replace(/</
 function timeAgo(d) { if (!d) return ''; var diff = Date.now() - new Date(d).getTime(); var m = Math.floor(diff / 60000); if (m < 1) return 'just now'; if (m < 60) return m + 'm ago'; var h = Math.floor(m / 60); if (h < 24) return h + 'h ago'; var dy = Math.floor(h / 24); if (dy < 30) return dy + 'd ago'; return new Date(d).toLocaleDateString('ja-JP'); }
 function formatDate(d) { if (!d) return ''; return new Date(d).toLocaleString('ja-JP', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' }); }
 function markdownToHtml(md) { if (!md) return ''; return md.replace(/^### (.+)$/gm, '<h3>$1</h3>').replace(/^## (.+)$/gm, '<h2>$1</h2>').replace(/^# (.+)$/gm, '<h1>$1</h1>').replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>').replace(/\*(.+?)\*/g, '<em>$1</em>').replace(/`(.+?)`/g, '<code>$1</code>').replace(/```(\w*)\n([\s\S]*?)```/g, '<pre><code>$2</code></pre>').replace(/^\> (.+)$/gm, '<blockquote>$1</blockquote>').replace(/^- (.+)$/gm, '<li>$1</li>').replace(/(<li>.*<\/li>)/s, '<ul>$1</ul>').replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img src="$2" alt="$1" loading="lazy">').replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank">$1</a>').replace(/\n\n/g, '</p><p>').replace(/\n/g, '<br>'); }
+
+var RELATED_HEAD_PATTERN = /^(関連\s*(?:記事|する記事|エントリー|エントリ|リンク|情報|ページ|コンテンツ|ニュース|まとめ)|あわせて\s*(?:読みたい|よみたい)|おすすめ(?:\s*の?\s*(?:記事|エントリー|コンテンツ|本|書籍|記事一覧)|\s*$)|注目記事|新着記事|(?:アクセス|週間|月間|人気|総合)?ランキング|ranking|人気(?:\s*の\s*)?(?:記事|エントリー|ブログ記事)|こちらもおすすめ|こちらの記事も|続きを読む|次の記事|前の記事|この記事を書いた人|プロフィール|スポンサー(?:ド)?リンク|広告|advertisement|advertising|sponsored(?:\s*links)?|related(?:\s*(?:posts|articles|entries))?|recommended(?:\s*(?:for\s*you|posts|articles))?|you\s*may\s*also\s*like)/i;
+var RELATED_BLOCK_PATTERN = /^(関連\s*(?:記事|する記事|エントリー|エントリ|コンテンツ|ニュース|まとめ)|あわせて\s*(?:読みたい|よみたい)|おすすめ(?:\s*の?\s*(?:記事|エントリー|コンテンツ|本|書籍|記事一覧)|\s*$)|注目記事|(?:アクセス|週間|月間|人気|総合)?ランキング|ranking|人気(?:\s*の\s*)?(?:記事|エントリー|ブログ記事)|こちらもおすすめ|続きを読む|次の記事|前の記事|この記事を書いた人|スポンサー(?:ド)?リンク|広告|advertisement|advertising|sponsored(?:\s*links)?|related(?:\s*(?:posts|articles|entries))?|recommended(?:\s*(?:for\s*you|posts|articles))?|you\s*may\s*also\s*like)/i;
+
+function hideFrom(root, el) {
+  while (el.parentNode && el.parentNode !== root) {
+    var parent = el.parentNode;
+    var s = el.nextSibling;
+    while (s) { var ns = s.nextSibling; s.remove(); s = ns; }
+    el = parent;
+  }
+  var s = el.nextSibling;
+  while (s) { var ns = s.nextSibling; s.remove(); s = ns; }
+  el.remove();
+}
+
+function applyHideRelated() {
+  if (!hideRelated) return;
+  var body = $('#content-body');
+  if (!body) return;
+  var root = body.querySelector('.prose') || body;
+  var nodes = root.querySelectorAll('h1,h2,h3,h4,h5,h6,strong,b,p,div,section,li,dt');
+  var cut = null;
+  for (var i = 0; i < nodes.length; i++) {
+    var el = nodes[i];
+    var tag = el.tagName;
+    var isHead = tag === 'H1' || tag === 'H2' || tag === 'H3' || tag === 'H4' || tag === 'H5' || tag === 'H6' || tag === 'STRONG' || tag === 'B';
+    var t = (el.textContent || '').trim().replace(/^[・■◆●○◎◇□▶▷◀◁★☆※→←⇒⇔∴•◦·\-\u2013\u2014]+/, '');
+    if (!t) continue;
+    var sample = t.slice(0, 50);
+    if (!(isHead ? RELATED_HEAD_PATTERN : RELATED_BLOCK_PATTERN).test(sample)) continue;
+    if (!isHead && t.length > 30 && !el.querySelector('ul,ol,p,div,h1,h2,h3,h4,h5,h6,li')) continue;
+    var range = document.createRange();
+    range.selectNodeContents(root);
+    range.setEnd(el, 0);
+    var before = range.toString().length;
+    var total = root.textContent.length;
+    if (total > 100 && before / total < 0.15) continue;
+    cut = el;
+    break;
+  }
+  if (cut) hideFrom(root, cut);
+}
 
 function applyArticleWidth() {
   var pane = $('#article-pane');
@@ -505,6 +552,19 @@ if (autoScrollBtn) {
     autoScrollNext = !autoScrollNext;
     localStorage.setItem('selfrss-auto-scroll', autoScrollNext ? '1' : '0');
     autoScrollBtn.classList.toggle('active', autoScrollNext);
+  });
+}
+
+var hideRelatedBtn = $('#btn-hide-related');
+if (hideRelatedBtn) {
+  hideRelatedBtn.classList.toggle('active', hideRelated);
+  hideRelatedBtn.title = hideRelated ? '関連記事を再表示' : '関連記事を非表示（ON/OFF切替）';
+  hideRelatedBtn.addEventListener('click', function() {
+    hideRelated = !hideRelated;
+    localStorage.setItem('selfrss-hide-related', hideRelated ? '1' : '0');
+    hideRelatedBtn.classList.toggle('active', hideRelated);
+    hideRelatedBtn.title = hideRelated ? '関連記事を再表示' : '関連記事を非表示（ON/OFF切替）';
+    if (currentArticleData) renderContent(currentArticleData);
   });
 }
 
