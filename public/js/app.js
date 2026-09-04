@@ -489,6 +489,7 @@ $('#btn-delete-feed').addEventListener('click', async function() {
     var feeds=await api('/feeds');var folderFeeds=feeds.filter(function(f){return f.folder_id===currentFolderId});
     if(!confirm('「'+(folder?folder.name:'このカテゴリー')+'」を削除しますか？\n中のフィード('+folderFeeds.length+'件)も全て削除されます。'))return;
     for(var i=0;i<folderFeeds.length;i++)await api('/feeds/'+folderFeeds[i].id,{method:'DELETE'});
+    await api('/folders/'+currentFolderId,{method:'DELETE'});
     setView('all');await loadFeeds();await loadStats();
   } else if(currentFeedId){
     var feeds=await api('/feeds');var feed=feeds.find(function(f){return f.id===currentFeedId});
