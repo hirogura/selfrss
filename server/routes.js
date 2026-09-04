@@ -291,7 +291,7 @@ export default async function routes(app) {
     try {
       const entries = parseFavorites(favorites);
       if (entries.length === 0) return reply.code(400).send({ error: 'No favorites found in file' });
-      let imported = 0, skipped = 0;
+      let imported = 0, created = 0, skipped = 0;
       const feedByUrl = new Map();
       for (const e of entries) {
         if (!e.url || !e.feed) { skipped++; continue; }
@@ -303,12 +303,17 @@ export default async function routes(app) {
         }
         if (!feedId) { skipped++; continue; }
         const article = db.prepare('SELECT id, is_starred FROM articles WHERE feed_id = ? AND url = ?').get(feedId, e.url);
-        if (!article) { skipped++; continue; }
+        if (!article) {
+          // フィード登録済みなら、記事が未取得でもレコードを作成してスターを立てる
+          db.prepare('INSERT INTO articles (feed_id, title, url, published_at, is_starred) VALUES (?, ?, ?, ?, 1)').run(feedId, e.title || e.url, e.url, e.published_at || null);
+          created++;
+          continue;
+        }
         if (article.is_starred) { skipped++; continue; }
         db.prepare('UPDATE articles SET is_starred = 1 WHERE id = ?').run(article.id);
         imported++;
       }
-      return { imported, skipped, total: entries.length };
+      return { imported, created, skipped, total: entries.length };
     } catch (err) { return reply.code(500).send({ error: err.message }); }
   });
 }

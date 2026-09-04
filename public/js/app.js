@@ -443,7 +443,7 @@ $('#btn-import-favorites').addEventListener('click', function() {
   $('#btn-fav-modal-confirm').onclick=async function(){
     var file=$('#fav-file-input').files[0];
     if(!file){$('#fav-modal-error').textContent='ファイルを選択してください';return;}
-    try{var text=await file.text();var res=await api('/favorites/import',{method:'POST',body:{favorites:text}});if(res.error)throw new Error(res.error);$('#fav-result').style.display='block';$('#fav-result').innerHTML='<strong>インポート完了</strong><br>お気に入り登録: '+res.imported+'件 / スキップ: '+res.skipped+'件 / 合計: '+res.total+'件';await loadFeeds();await loadStats();if(currentView==='starred')setView('starred');}
+    try{var text=await file.text();var res=await api('/favorites/import',{method:'POST',body:{favorites:text}});if(res.error)throw new Error(res.error);$('#fav-result').style.display='block';$('#fav-result').innerHTML='<strong>インポート完了</strong><br>お気に入り登録: '+(res.imported+(res.created||0))+'件（うち新規作成: '+(res.created||0)+'件） / スキップ: '+res.skipped+'件 / 合計: '+res.total+'件';await loadFeeds();await loadStats();if(currentView==='starred')setView('starred');}
     catch(e){$('#fav-modal-error').textContent=e.message;}
   };
 });
