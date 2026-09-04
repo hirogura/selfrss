@@ -218,7 +218,7 @@ function setView(view) {
   loadArticles(p);
 }
 
-function hideModal() { $('#modal-overlay').style.display = 'none'; var d = $('#modal-discover'); if (d) d.style.display = 'none'; }
+function hideModal() { $('#modal-overlay').style.display = 'none'; var d = $('#modal-discover'); if (d) d.style.display = 'none'; var i = $('#modal-input'); if (i) i.style.display = ''; var s = $('#modal-folder-select'); if (s) s.style.display = ''; }
 function esc(s) { if (!s) return ''; return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
 function timeAgo(d) { if (!d) return ''; var diff = Date.now() - new Date(d).getTime(); var m = Math.floor(diff / 60000); if (m < 1) return 'just now'; if (m < 60) return m + 'm ago'; var h = Math.floor(m / 60); if (h < 24) return h + 'h ago'; var dy = Math.floor(h / 24); if (dy < 30) return dy + 'd ago'; return new Date(d).toLocaleDateString('ja-JP'); }
 function formatDate(d) { if (!d) return ''; return new Date(d).toLocaleString('ja-JP', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' }); }
@@ -483,22 +483,147 @@ $('#btn-star').addEventListener('click', async function() {
   if(currentView==='starred')setView('starred');
 });
 
+async function deleteFolderById(folderId){
+  var folders=await api('/folders');var folder=folders.find(function(f){return f.id===folderId});
+  var feeds=await api('/feeds');var folderFeeds=feeds.filter(function(f){return f.folder_id===folderId});
+  if(!confirm('「'+(folder?folder.name:'このカテゴリー')+'」を削除しますか？\n中のフィード('+folderFeeds.length+'件)も全て削除されます。'))return;
+  for(var i=0;i<folderFeeds.length;i++)await api('/feeds/'+folderFeeds[i].id,{method:'DELETE'});
+  await api('/folders/'+folderId,{method:'DELETE'});
+  setView('all');await loadFeeds();await loadStats();
+}
+
+async function deleteFeedById(feedId){
+  var feeds=await api('/feeds');var feed=feeds.find(function(f){return f.id===feedId});
+  if(!feed)return;
+  if(!confirm('「'+feed.title+'」を削除しますか？\nこのフィードの全記事も削除されます。'))return;
+  await api('/feeds/'+feedId,{method:'DELETE'});
+  setView('all');await loadFeeds();await loadStats();
+}
+
+function openRenameFolderModal(folder){
+  var fs=$('#modal-folder-select'); if(fs)fs.style.display='none';
+  var d=$('#modal-discover'); if(d)d.style.display='none';
+  var input=$('#modal-input');
+  input.style.display='';
+  $('#modal-title').textContent='カテゴリー名変更';
+  input.placeholder='カテゴリー名';
+  input.value=folder.name;
+  $('#modal-error').textContent='';
+  $('#modal-overlay').style.display='flex';
+  input.focus();input.select();
+  var composing=false;
+  var onStart=function(){composing=true};
+  var onEnd=function(){composing=false};
+  input.addEventListener('compositionstart',onStart);
+  input.addEventListener('compositionend',onEnd);
+  var handler=async function(){
+    if(composing)return;
+    var name=input.value.trim();
+    if(!name)return;
+    try{
+      var r=await api('/folders/'+folder.id,{method:'PUT',body:{name:name}});
+      if(r.error)throw new Error(r.error);
+      hideModal();
+      input.removeEventListener('compositionstart',onStart);
+      input.removeEventListener('compositionend',onEnd);
+      await loadFeeds();await loadStats();
+      if(currentView==='folder'&&currentFolderId===folder.id)$('#article-pane-title').textContent=name;
+    }catch(e){$('#modal-error').textContent=e.message;}
+  };
+  var cleanup=function(){if(fs)fs.style.display='';input.removeEventListener('compositionstart',onStart);input.removeEventListener('compositionend',onEnd)};
+  $('#btn-modal-confirm').onclick=handler;
+  $('#btn-modal-cancel').onclick=function(){hideModal();cleanup()};
+  $('#btn-modal-close').onclick=function(){hideModal();cleanup()};
+  input.onkeydown=function(e){if(e.key==='Enter'&&!composing)handler()};
+}
+
+async function renameFolder(folderId){
+  var folders=await api('/folders');
+  var folder=folders.find(function(f){return f.id===folderId});
+  if(folder)openRenameFolderModal(folder);
+}
+
+async function openChangeCategoryModal(feed){
+  var fs=$('#modal-folder-select');
+  var input=$('#modal-input');
+  var d=$('#modal-discover'); if(d)d.style.display='none';
+  var folders=await api('/folders');
+  fs.style.display='';
+  fs.innerHTML='<option value="">カテゴリーなし</option>';
+  for(var i=0;i<folders.length;i++)fs.innerHTML+='<option value="'+folders[i].id+'">'+esc(folders[i].name)+'</option>';
+  if(feed.folder_id)fs.value=String(feed.folder_id);
+  input.style.display='none';
+  $('#modal-title').textContent='カテゴリー変更';
+  $('#modal-error').textContent='';
+  $('#modal-overlay').style.display='flex';
+  var handler=async function(){
+    var folderId=fs.value?parseInt(fs.value):null;
+    try{
+      var r=await api('/feeds/'+feed.id,{method:'PUT',body:{folder_id:folderId}});
+      if(r.error)throw new Error(r.error);
+      hideModal();
+      await loadFeeds();await loadStats();
+    }catch(e){$('#modal-error').textContent=e.message;}
+  };
+  $('#btn-modal-confirm').onclick=handler;
+  $('#btn-modal-cancel').onclick=function(){hideModal()};
+  $('#btn-modal-close').onclick=function(){hideModal()};
+}
+
+async function changeFeedCategory(feedId){
+  var feeds=await api('/feeds');
+  var feed=feeds.find(function(f){return f.id===feedId});
+  if(feed)await openChangeCategoryModal(feed);
+}
+
 $('#btn-delete-feed').addEventListener('click', async function() {
-  if(currentView==='folder'&&currentFolderId){
-    var folders=await api('/folders');var folder=folders.find(function(f){return f.id===currentFolderId});
-    var feeds=await api('/feeds');var folderFeeds=feeds.filter(function(f){return f.folder_id===currentFolderId});
-    if(!confirm('「'+(folder?folder.name:'このカテゴリー')+'」を削除しますか？\n中のフィード('+folderFeeds.length+'件)も全て削除されます。'))return;
-    for(var i=0;i<folderFeeds.length;i++)await api('/feeds/'+folderFeeds[i].id,{method:'DELETE'});
-    await api('/folders/'+currentFolderId,{method:'DELETE'});
-    setView('all');await loadFeeds();await loadStats();
-  } else if(currentFeedId){
-    var feeds=await api('/feeds');var feed=feeds.find(function(f){return f.id===currentFeedId});
-    if(!feed)return;
-    if(!confirm('「'+feed.title+'」を削除しますか？\nこのフィードの全記事も削除されます。'))return;
-    await api('/feeds/'+currentFeedId,{method:'DELETE'});
-    setView('all');await loadFeeds();await loadStats();
+  if(currentView==='folder'&&currentFolderId) deleteFolderById(currentFolderId);
+  else if(currentFeedId) deleteFeedById(currentFeedId);
+});
+
+var contextMenuEl=$('#context-menu');
+function hideContextMenu(){contextMenuEl.style.display='none';contextMenuEl.innerHTML='';}
+function showContextMenu(x,y,items){
+  contextMenuEl.innerHTML='';
+  for(var i=0;i<items.length;i++){
+    var item=items[i];
+    var b=document.createElement('button');
+    b.type='button';
+    b.className='context-menu-item'+(item.danger?' danger':'');
+    b.textContent=item.label;
+    b.addEventListener('click',(function(action){return function(){hideContextMenu();action();}})(item.action));
+    contextMenuEl.appendChild(b);
+  }
+  contextMenuEl.style.display='block';
+  var rect=contextMenuEl.getBoundingClientRect();
+  contextMenuEl.style.left=Math.max(8,Math.min(x,window.innerWidth-rect.width-8))+'px';
+  contextMenuEl.style.top=Math.max(8,Math.min(y,window.innerHeight-rect.height-8))+'px';
+}
+
+$('#feed-list').addEventListener('contextmenu',function(e){
+  var folderEl=e.target.closest('.folder-item');
+  var feedEl=folderEl?null:e.target.closest('.feed-item');
+  if(!folderEl&&!feedEl)return;
+  e.preventDefault();
+  if(folderEl){
+    var fid=parseInt(folderEl.dataset.folderId);
+    showContextMenu(e.clientX,e.clientY,[
+      {label:'カテゴリー名変更',action:function(){renameFolder(fid)}},
+      {label:'削除',danger:true,action:function(){deleteFolderById(fid)}}
+    ]);
+  }else{
+    var feedId=parseInt(feedEl.dataset.feedId);
+    showContextMenu(e.clientX,e.clientY,[
+      {label:'カテゴリー変更',action:function(){changeFeedCategory(feedId)}},
+      {label:'削除',danger:true,action:function(){deleteFeedById(feedId)}}
+    ]);
   }
 });
+
+document.addEventListener('click',function(e){if(!e.target.closest('#context-menu'))hideContextMenu()});
+window.addEventListener('resize',hideContextMenu);
+window.addEventListener('scroll',hideContextMenu,true);
+document.addEventListener('keydown',function(e){if(e.key==='Escape')hideContextMenu()});
 
 $('#search-input').addEventListener('input',function(e){clearTimeout(searchTimeout);var q=e.target.value.trim();searchTimeout=setTimeout(function(){currentSearchQuery=q;q?loadArticles({search:q}):setView(currentView)},300)});
 $('#modal-overlay').addEventListener('click',function(e){if(e.target===e.currentTarget)hideModal()});

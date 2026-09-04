@@ -217,6 +217,15 @@ export default async function routes(app) {
     catch { return reply.code(409).send({ error: 'Folder already exists' }); }
   });
   app.delete('/folders/:id', async (req) => { db.prepare('DELETE FROM folders WHERE id = ?').run(req.params.id); return { ok: true }; });
+  app.put('/folders/:id', async (req, reply) => {
+    const { name } = req.body;
+    if (!name) return reply.code(400).send({ error: 'Name required' });
+    try {
+      const r = db.prepare('UPDATE folders SET name = ? WHERE id = ?').run(name, req.params.id);
+      if (r.changes === 0) return reply.code(404).send({ error: 'Folder not found' });
+      return { ok: true };
+    } catch { return reply.code(409).send({ error: 'Folder already exists' }); }
+  });
 
   app.get('/articles', async (req) => {
     const { feed_id, folder_id, starred, unread, search, limit = 100, offset = 0 } = req.query;
