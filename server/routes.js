@@ -101,6 +101,30 @@ function parseOpml(xml) {
   return feeds;
 }
 
+function parseFavorites(text) {
+  // 形式: エントリごとに空行区切り。URL 行でエントリを開始する。
+  const entries = [];
+  let current = null;
+  for (const rawLine of String(text).split('\n')) {
+    const line = rawLine.trim();
+    if (!line || line.startsWith('#')) continue;
+    const m = line.match(/^([A-Za-z]+):\s*(.*)$/);
+    if (!m) continue;
+    const key = m[1].toUpperCase();
+    const value = m[2].trim();
+    if (key === 'URL') {
+      if (current) entries.push(current);
+      current = { url: value, feed: '', title: '', published_at: '' };
+    } else if (current) {
+      if (key === 'FEED') current.feed = value;
+      else if (key === 'TITLE') current.title = value;
+      else if (key === 'DATE') current.published_at = value;
+    }
+  }
+  if (current) entries.push(current);
+  return entries;
+}
+
 export default async function routes(app) {
   const noBody = { schema: { consumes: [] } };
 
@@ -244,5 +268,47 @@ export default async function routes(app) {
     const dateStr = new Date().toISOString().slice(0, 10);
     reply.header('Content-Disposition', 'attachment; filename="selfrss-export-' + dateStr + '.opml"');
     return reply.send(opml);
+  });
+
+  app.get('/favorites/export', async (req, reply) => {
+    const rows = db.prepare('SELECT a.title, a.url, a.published_at, f.url as feed_url FROM articles a JOIN feeds f ON f.id = a.feed_id WHERE a.is_starred = 1 ORDER BY a.published_at DESC').all();
+    let text = '# selfrss favorites\n# exported: ' + new Date().toISOString() + '\n# total: ' + rows.length + '\n\n';
+    for (const r of rows) {
+      text += 'URL: ' + r.url + '\n';
+      text += 'FEED: ' + r.feed_url + '\n';
+      text += 'TITLE: ' + (r.title || '').replace(/\n/g, ' ') + '\n';
+      text += 'DATE: ' + (r.published_at || '') + '\n\n';
+    }
+    reply.header('Content-Type', 'text/plain; charset=utf-8');
+    const dateStr = new Date().toISOString().slice(0, 10);
+    reply.header('Content-Disposition', 'attachment; filename="selfrss-favorite-' + dateStr + '.txt"');
+    return reply.send(text);
+  });
+
+  app.post('/favorites/import', async (req, reply) => {
+    const { favorites } = req.body;
+    if (!favorites) return reply.code(400).send({ error: 'Favorites content required' });
+    try {
+      const entries = parseFavorites(favorites);
+      if (entries.length === 0) return reply.code(400).send({ error: 'No favorites found in file' });
+      let imported = 0, skipped = 0;
+      const feedByUrl = new Map();
+      for (const e of entries) {
+        if (!e.url || !e.feed) { skipped++; continue; }
+        let feedId = feedByUrl.get(e.feed);
+        if (feedId === undefined) {
+          const feed = db.prepare('SELECT id FROM feeds WHERE url = ?').get(e.feed);
+          feedId = feed ? feed.id : null;
+          feedByUrl.set(e.feed, feedId);
+        }
+        if (!feedId) { skipped++; continue; }
+        const article = db.prepare('SELECT id, is_starred FROM articles WHERE feed_id = ? AND url = ?').get(feedId, e.url);
+        if (!article) { skipped++; continue; }
+        if (article.is_starred) { skipped++; continue; }
+        db.prepare('UPDATE articles SET is_starred = 1 WHERE id = ?').run(article.id);
+        imported++;
+      }
+      return { imported, skipped, total: entries.length };
+    } catch (err) { return reply.code(500).send({ error: err.message }); }
   });
 }

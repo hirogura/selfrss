@@ -435,6 +435,21 @@ $('#btn-import-opml').addEventListener('click', function() {
 
 $('#btn-export-opml').addEventListener('click', function(){ window.location.href='/api/opml/export'; });
 
+$('#btn-import-favorites').addEventListener('click', function() {
+  var o=$('#fav-modal-overlay');o.style.display='flex';$('#fav-modal-error').textContent='';$('#fav-result').style.display='none';$('#fav-file-input').value='';
+  var close=function(){o.style.display='none'};
+  $('#btn-fav-modal-cancel').onclick=close;$('#btn-fav-modal-close').onclick=close;
+  o.addEventListener('click',function(e){if(e.target===o)close()},{once:true});
+  $('#btn-fav-modal-confirm').onclick=async function(){
+    var file=$('#fav-file-input').files[0];
+    if(!file){$('#fav-modal-error').textContent='ファイルを選択してください';return;}
+    try{var text=await file.text();var res=await api('/favorites/import',{method:'POST',body:{favorites:text}});if(res.error)throw new Error(res.error);$('#fav-result').style.display='block';$('#fav-result').innerHTML='<strong>インポート完了</strong><br>お気に入り登録: '+res.imported+'件 / スキップ: '+res.skipped+'件 / 合計: '+res.total+'件';await loadFeeds();await loadStats();if(currentView==='starred')setView('starred');}
+    catch(e){$('#fav-modal-error').textContent=e.message;}
+  };
+});
+
+$('#btn-export-favorites').addEventListener('click', function(){ window.location.href='/api/favorites/export'; });
+
 $('#btn-refresh-all').addEventListener('click', async function() {
   var b=$('#btn-refresh-all');b.style.animation='spin 1s linear infinite';
   await api('/feeds/refresh-all',{method:'POST'});b.style.animation='';
