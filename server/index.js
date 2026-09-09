@@ -16,12 +16,13 @@ await app.register(fastifyCors);
 await app.register(fastifyStatic, { root: join(__dirname, '..', 'public') });
 await app.register(routes, { prefix: '/api' });
 
-app.addHook('onSend', async (req, reply) => {
+app.addHook('onSend', async (req, reply, payload) => {
   if (req.url.startsWith('/api/')) {
     reply.header('Cache-Control', 'no-store, no-cache, must-revalidate');
     reply.header('Pragma', 'no-cache');
     reply.header('Expires', '0');
   }
+  return payload;
 });
 
 app.setNotFoundHandler((req, reply) => {

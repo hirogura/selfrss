@@ -50,9 +50,10 @@ async function discoverFeeds(siteUrl) {
     for (const link of links) {
       const href = link.getAttribute('href');
       if (!href) continue;
-      let feedUrl = href;
-      if (feedUrl.startsWith('/')) { const u = new URL(base); feedUrl = u.origin + feedUrl; }
-      else if (!feedUrl.startsWith('http')) feedUrl = base + '/' + feedUrl;
+      let feedUrl;
+      try {
+        feedUrl = new URL(href, base).href;
+      } catch { continue; }
       const title = link.getAttribute('title') || '';
       if (!feeds.find(f => f.url === feedUrl)) feeds.push({ url: feedUrl, title: title });
     }
@@ -66,8 +67,10 @@ function escapeXml(str) {
 }
 
 function getAttr(tag, name) {
-  const m = tag.match(new RegExp(name + '\\s*=\\s*"([^"]*)"', 'i'));
-  return m ? m[1].replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'") : null;
+  const m = tag.match(new RegExp(name + '\\s*=\\s*(?:"([^"]*)"|\'([^\']*)\')', 'i'));
+  if (!m) return null;
+  const raw = m[1] !== undefined ? m[1] : m[2];
+  return raw.replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&apos;/g, "'");
 }
 
 function parseOpml(xml) {
@@ -154,7 +157,7 @@ export default async function routes(app) {
   });
 
   app.post('/opml/import', async (req, reply) => {
-    const { opml } = req.body;
+    const { opml } = req.body || {};
     if (!opml) return reply.code(400).send({ error: 'OPML content required' });
     try {
       const feeds = parseOpml(opml);
@@ -179,7 +182,7 @@ export default async function routes(app) {
   });
 
   app.post('/feeds/discover', async (req, reply) => {
-    const { url } = req.body;
+    const { url } = req.body || {};
     if (!url) return reply.code(400).send({ error: 'URL required' });
     return { feeds: await discoverFeeds(url) };
   });
@@ -189,7 +192,7 @@ export default async function routes(app) {
   });
 
   app.post('/feeds', async (req, reply) => {
-    const { url, folder_id } = req.body;
+    const { url, folder_id } = req.body || {};
     if (!url) return reply.code(400).send({ error: 'URL required' });
     if (db.prepare('SELECT id FROM feeds WHERE url = ?').get(url)) return reply.code(409).send({ error: 'Feed already exists' });
     const result = db.prepare('INSERT INTO feeds (title, url, site_url, folder_id) VALUES (?, ?, ?, ?)').run(url, url, null, folder_id || null);
@@ -200,7 +203,7 @@ export default async function routes(app) {
   app.delete('/feeds/:id', async (req) => { db.prepare('DELETE FROM feeds WHERE id = ?').run(req.params.id); return { ok: true }; });
 
   app.put('/feeds/:id', async (req) => {
-    const { title, folder_id } = req.body;
+    const { title, folder_id } = req.body || {};
     if (title) db.prepare('UPDATE feeds SET title = ? WHERE id = ?').run(title, req.params.id);
     if (folder_id !== undefined) db.prepare('UPDATE feeds SET folder_id = ? WHERE id = ?').run(folder_id, req.params.id);
     return { ok: true };
@@ -211,14 +214,14 @@ export default async function routes(app) {
 
   app.get('/folders', async () => db.prepare('SELECT * FROM folders ORDER BY name').all());
   app.post('/folders', async (req, reply) => {
-    const { name } = req.body;
+    const { name } = req.body || {};
     if (!name) return reply.code(400).send({ error: 'Name required' });
     try { return { id: db.prepare('INSERT INTO folders (name) VALUES (?)').run(name).lastInsertRowid }; }
     catch { return reply.code(409).send({ error: 'Folder already exists' }); }
   });
   app.delete('/folders/:id', async (req) => { db.prepare('DELETE FROM folders WHERE id = ?').run(req.params.id); return { ok: true }; });
   app.put('/folders/:id', async (req, reply) => {
-    const { name } = req.body;
+    const { name } = req.body || {};
     if (!name) return reply.code(400).send({ error: 'Name required' });
     try {
       const r = db.prepare('UPDATE folders SET name = ? WHERE id = ?').run(name, req.params.id);
@@ -228,7 +231,12 @@ export default async function routes(app) {
   });
 
   app.get('/articles', async (req) => {
-    const { feed_id, folder_id, starred, unread, search, limit = 100, offset = 0 } = req.query;
+    const { feed_id, folder_id, starred, unread, search } = req.query;
+    let limit = parseInt(req.query.limit, 10);
+    let offset = parseInt(req.query.offset, 10);
+    if (!Number.isFinite(limit) || limit < 1) limit = 100;
+    if (limit > 500) limit = 500;
+    if (!Number.isFinite(offset) || offset < 0) offset = 0;
     let where = [], params = [];
     if (feed_id) { where.push('a.feed_id = ?'); params.push(feed_id); }
     if (folder_id) { where.push('f.folder_id = ?'); params.push(folder_id); }
@@ -236,14 +244,15 @@ export default async function routes(app) {
     if (unread === '1') where.push('a.is_read = 0');
     if (search) { where.push('(a.title LIKE ? OR a.summary LIKE ?)'); params.push('%' + search + '%', '%' + search + '%'); }
     const wc = where.length ? 'WHERE ' + where.join(' AND ') : '';
-    const articles = db.prepare('SELECT a.*, f.title as feed_title, f.site_url as feed_site_url FROM articles a JOIN feeds f ON f.id = a.feed_id ' + wc + ' ORDER BY a.published_at DESC LIMIT ? OFFSET ?').all(...params, parseInt(limit), parseInt(offset));
+    const articles = db.prepare('SELECT a.*, f.title as feed_title, f.site_url as feed_site_url FROM articles a JOIN feeds f ON f.id = a.feed_id ' + wc + ' ORDER BY a.published_at DESC LIMIT ? OFFSET ?').all(...params, limit, offset);
     const total = db.prepare('SELECT COUNT(*) as total FROM articles a JOIN feeds f ON f.id = a.feed_id ' + wc).get(...params).total;
     return { articles, total };
   });
 
-  app.get('/articles/:id', async (req) => {
+  app.get('/articles/:id', async (req, reply) => {
     const a = db.prepare('SELECT a.*, f.title as feed_title, f.site_url as feed_site_url FROM articles a JOIN feeds f ON f.id = a.feed_id WHERE a.id = ?').get(req.params.id);
-    return a || { error: 'Not found' };
+    if (!a) return reply.code(404).send({ error: 'Not found' });
+    return a;
   });
 
   app.put('/articles/:id/read', noBody, async (req) => { db.prepare('UPDATE articles SET is_read = 1 WHERE id = ?').run(req.params.id); return { ok: true }; });
@@ -295,7 +304,7 @@ export default async function routes(app) {
   });
 
   app.post('/favorites/import', async (req, reply) => {
-    const { favorites } = req.body;
+    const { favorites } = req.body || {};
     if (!favorites) return reply.code(400).send({ error: 'Favorites content required' });
     try {
       const entries = parseFavorites(favorites);

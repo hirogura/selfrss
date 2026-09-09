@@ -67,8 +67,9 @@ async function processItems(items, feedId, insertArticle) {
   for (let i = 0; i < items.length; i += CONCURRENCY) {
     const batch = items.slice(i, i + CONCURRENCY);
     const results = await Promise.all(batch.map(async (item) => {
-      const url = item.link || item.guid;
-      if (!url) return null;
+      let url = item.link || item.guid;
+      if (typeof url === 'object' && url !== null) url = url._ || url.href || url['#'];
+      if (typeof url !== 'string' || !url) return null;
       let content = null;
       if (item.content) content = extractRssContent(item.content);
       if (!content && item['content:encoded']) content = extractRssContent(item['content:encoded']);
@@ -77,7 +78,8 @@ async function processItems(items, feedId, insertArticle) {
         if (fullText && fullText.length > (content ? content.length : 0)) content = fullText;
       }
       const summary = item.contentSnippet ? item.contentSnippet.substring(0, 500) : (item.content ? stripTags(item.content).substring(0, 500) : '');
-      const pubDate = item.isoDate || item.pubDate || new Date().toISOString();
+      let pubDate = item.isoDate || item.pubDate || new Date().toISOString();
+      if (Number.isNaN(new Date(pubDate).getTime())) pubDate = new Date().toISOString();
       return insertArticle.run(feedId, item.title || 'Untitled', url, item.creator || item.author || null, content, summary, pubDate);
     }));
     for (const r of results) { if (r && r.changes > 0) added++; }
@@ -101,7 +103,7 @@ export async function fetchFeed(feedId) {
       try { xml = new TextDecoder(encoding).decode(buffer); } catch { xml = new TextDecoder('utf-8').decode(buffer); }
     } else {
       xml = new TextDecoder('utf-8').decode(buffer);
-      if (xml.includes('\ufffd')) { try { xml = new TextDecoder('euc-jp').decode(buffer); } catch {} }
+      if (xml.includes('\ufffd')) xml = decodeWithDetection(new Uint8Array(buffer));
     }
     const parsed = await parser.parseString(xml);
     db.prepare("UPDATE feeds SET title = ?, site_url = ?, last_fetched_at = datetime('now'), fetch_error = NULL WHERE id = ?").run(parsed.title || feed.title, parsed.link || feed.site_url, feedId);

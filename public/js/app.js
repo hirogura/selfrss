@@ -55,7 +55,7 @@ function renderFeedList(feeds, folders) {
       const el = document.createElement('div');
       el.className = 'folder-item' + (currentView === 'folder' && currentFolderId === folderId ? ' active' : '');
       el.dataset.folderId = folderId;
-      el.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg><span>' + folder + '</span>' + (totalUnread > 0 ? '<span class="badge badge-muted">' + totalUnread + '</span>' : '');
+      el.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg><span>' + esc(folder) + '</span>' + (totalUnread > 0 ? '<span class="badge badge-muted">' + totalUnread + '</span>' : '');
       el.addEventListener('click', (function(fid,fn){return function(){selectFolder(fid,fn)}})(folderId,folder));
       container.appendChild(el);
     }
@@ -118,9 +118,12 @@ function renderContent(article) {
   if (!article) { $('#content-placeholder').style.display = 'flex'; $('#content-view').style.display = 'none'; return; }
   $('#content-placeholder').style.display = 'none'; $('#content-view').style.display = 'flex'; $('#content-pane').scrollTop = 0;
   $('#content-title').textContent = article.title;
-  $('#content-feed').textContent = article.feed_title;
+  $('#content-feed').textContent = article.feed_title || '';
+  $('#content-feed').style.display = article.feed_title ? '' : 'none';
   $('#content-author').textContent = article.author ? 'by ' + article.author : '';
+  $('#content-author').style.display = article.author ? '' : 'none';
   $('#content-date').textContent = formatDate(article.published_at);
+  $('#content-date').style.display = article.published_at ? '' : 'none';
   var body = article.content || article.summary || '<p>コンテンツがありません。</p>';
   $('#content-body').innerHTML = '<div class="prose">' + markdownToHtml(body) + '</div>';
   applyHideRelated();
@@ -222,7 +225,7 @@ function hideModal() { $('#modal-overlay').style.display = 'none'; var d = $('#m
 function esc(s) { if (!s) return ''; return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
 function timeAgo(d) { if (!d) return ''; var diff = Date.now() - new Date(d).getTime(); var m = Math.floor(diff / 60000); if (m < 1) return 'just now'; if (m < 60) return m + 'm ago'; var h = Math.floor(m / 60); if (h < 24) return h + 'h ago'; var dy = Math.floor(h / 24); if (dy < 30) return dy + 'd ago'; return new Date(d).toLocaleDateString('ja-JP'); }
 function formatDate(d) { if (!d) return ''; return new Date(d).toLocaleString('ja-JP', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' }); }
-function markdownToHtml(md) { if (!md) return ''; return md.replace(/^### (.+)$/gm, '<h3>$1</h3>').replace(/^## (.+)$/gm, '<h2>$1</h2>').replace(/^# (.+)$/gm, '<h1>$1</h1>').replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>').replace(/\*(.+?)\*/g, '<em>$1</em>').replace(/`(.+?)`/g, '<code>$1</code>').replace(/```(\w*)\n([\s\S]*?)```/g, '<pre><code>$2</code></pre>').replace(/^\> (.+)$/gm, '<blockquote>$1</blockquote>').replace(/^- (.+)$/gm, '<li>$1</li>').replace(/(<li>.*<\/li>)/s, '<ul>$1</ul>').replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img src="$2" alt="$1" loading="lazy">').replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank">$1</a>').replace(/\n\n/g, '</p><p>').replace(/\n/g, '<br>'); }
+function markdownToHtml(md) { if (!md) return ''; var html = md.replace(/```(\w*)\n([\s\S]*?)```/g, '<pre><code>$2</code></pre>').replace(/^### (.+)$/gm, '<h3>$1</h3>').replace(/^## (.+)$/gm, '<h2>$1</h2>').replace(/^# (.+)$/gm, '<h1>$1</h1>').replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>').replace(/\*(.+?)\*/g, '<em>$1</em>').replace(/`(.+?)`/g, '<code>$1</code>').replace(/^\> (.+)$/gm, '<blockquote>$1</blockquote>').replace(/^- (.+)$/gm, '<li>$1</li>').replace(/(<li>.*<\/li>)/s, '<ul>$1</ul>').replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img src="$2" alt="$1" loading="lazy">').replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank">$1</a>').replace(/\n\n/g, '</p><p>').replace(/\n/g, '<br>'); return '<p>' + html + '</p>'; }
 
 var RELATED_HEAD_PATTERN = /^(関連\s*(?:記事|する記事|エントリー|エントリ|リンク|情報|ページ|コンテンツ|ニュース|まとめ)|あわせて\s*(?:読みたい|よみたい)|おすすめ(?:\s*の?\s*(?:記事|エントリー|コンテンツ|本|書籍|記事一覧)|\s*$)|注目記事|新着記事|(?:アクセス|週間|月間|人気|総合)?ランキング|ranking|人気(?:\s*の\s*)?(?:記事|エントリー|ブログ記事)|こちらもおすすめ|こちらの記事も|続きを読む|次の記事|前の記事|この記事を書いた人|プロフィール|スポンサー(?:ド)?リンク|広告|advertisement|advertising|sponsored(?:\s*links)?|related(?:\s*(?:posts|articles|entries))?|recommended(?:\s*(?:for\s*you|posts|articles))?|you\s*may\s*also\s*like)/i;
 var RELATED_BLOCK_PATTERN = /^(関連\s*(?:記事|する記事|エントリー|エントリ|コンテンツ|ニュース|まとめ)|あわせて\s*(?:読みたい|よみたい)|おすすめ(?:\s*の?\s*(?:記事|エントリー|コンテンツ|本|書籍|記事一覧)|\s*$)|注目記事|(?:アクセス|週間|月間|人気|総合)?ランキング|ranking|人気(?:\s*の\s*)?(?:記事|エントリー|ブログ記事)|こちらもおすすめ|続きを読む|次の記事|前の記事|この記事を書いた人|スポンサー(?:ド)?リンク|広告|advertisement|advertising|sponsored(?:\s*links)?|related(?:\s*(?:posts|articles|entries))?|recommended(?:\s*(?:for\s*you|posts|articles))?|you\s*may\s*also\s*like)/i;
@@ -347,10 +350,8 @@ $('#btn-add-feed').addEventListener('click', async function() {
   $('#modal-overlay').style.display = 'flex';
   $('#modal-input').focus();
   var composing = false;
-  var onStart = function(){composing=true};
-  var onEnd = function(){composing=false};
-  $('#modal-input').addEventListener('compositionstart', onStart);
-  $('#modal-input').addEventListener('compositionend', onEnd);
+  $('#modal-input').oncompositionstart = function(){composing=true};
+  $('#modal-input').oncompositionend = function(){composing=false};
   var handler = async function() {
     if (composing) return;
     var url = $('#modal-input').value.trim();
@@ -387,8 +388,8 @@ $('#btn-add-feed').addEventListener('click', async function() {
     } catch(e) { $('#modal-error').textContent = e.message; }
   };
   $('#btn-modal-confirm').onclick = handler;
-  $('#btn-modal-cancel').onclick = function(){hideModal();$('#modal-input').removeEventListener('compositionstart',onStart);$('#modal-input').removeEventListener('compositionend',onEnd)};
-  $('#btn-modal-close').onclick = function(){hideModal();$('#modal-input').removeEventListener('compositionstart',onStart);$('#modal-input').removeEventListener('compositionend',onEnd)};
+  $('#btn-modal-cancel').onclick = function(){hideModal()};
+  $('#btn-modal-close').onclick = function(){hideModal()};
   $('#modal-input').onkeydown = function(e){if(e.key==='Enter'&&!composing)handler()};
 });
 
@@ -402,18 +403,16 @@ $('#btn-add-folder').addEventListener('click', function() {
   $('#modal-overlay').style.display='flex';
   $('#modal-input').focus();
   var composing=false;
-  var onStart=function(){composing=true};
-  var onEnd=function(){composing=false};
-  $('#modal-input').addEventListener('compositionstart',onStart);
-  $('#modal-input').addEventListener('compositionend',onEnd);
+  $('#modal-input').oncompositionstart=function(){composing=true};
+  $('#modal-input').oncompositionend=function(){composing=false};
   var handler=async function(){
     if(composing)return;
     var name=$('#modal-input').value.trim();
     if(!name)return;
-    try{var r=await api('/folders',{method:'POST',body:{name:name}});if(r.error)throw new Error(r.error);hideModal();if(fs)fs.style.display='';$('#modal-input').removeEventListener('compositionstart',onStart);$('#modal-input').removeEventListener('compositionend',onEnd);await loadFeeds();await loadStats();}
+    try{var r=await api('/folders',{method:'POST',body:{name:name}});if(r.error)throw new Error(r.error);hideModal();if(fs)fs.style.display='';await loadFeeds();await loadStats();}
     catch(e){$('#modal-error').textContent=e.message;}
   };
-  var cleanup=function(){if(fs)fs.style.display='';$('#modal-input').removeEventListener('compositionstart',onStart);$('#modal-input').removeEventListener('compositionend',onEnd)};
+  var cleanup=function(){if(fs)fs.style.display='';};
   $('#btn-modal-confirm').onclick=handler;
   $('#btn-modal-cancel').onclick=function(){hideModal();cleanup()};
   $('#btn-modal-close').onclick=function(){hideModal();cleanup()};
@@ -512,10 +511,8 @@ function openRenameFolderModal(folder){
   $('#modal-overlay').style.display='flex';
   input.focus();input.select();
   var composing=false;
-  var onStart=function(){composing=true};
-  var onEnd=function(){composing=false};
-  input.addEventListener('compositionstart',onStart);
-  input.addEventListener('compositionend',onEnd);
+  input.oncompositionstart=function(){composing=true};
+  input.oncompositionend=function(){composing=false};
   var handler=async function(){
     if(composing)return;
     var name=input.value.trim();
@@ -524,13 +521,11 @@ function openRenameFolderModal(folder){
       var r=await api('/folders/'+folder.id,{method:'PUT',body:{name:name}});
       if(r.error)throw new Error(r.error);
       hideModal();
-      input.removeEventListener('compositionstart',onStart);
-      input.removeEventListener('compositionend',onEnd);
       await loadFeeds();await loadStats();
       if(currentView==='folder'&&currentFolderId===folder.id)$('#article-pane-title').textContent=name;
     }catch(e){$('#modal-error').textContent=e.message;}
   };
-  var cleanup=function(){if(fs)fs.style.display='';input.removeEventListener('compositionstart',onStart);input.removeEventListener('compositionend',onEnd)};
+  var cleanup=function(){if(fs)fs.style.display='';};
   $('#btn-modal-confirm').onclick=handler;
   $('#btn-modal-cancel').onclick=function(){hideModal();cleanup()};
   $('#btn-modal-close').onclick=function(){hideModal();cleanup()};
@@ -625,7 +620,7 @@ window.addEventListener('resize',hideContextMenu);
 window.addEventListener('scroll',hideContextMenu,true);
 document.addEventListener('keydown',function(e){if(e.key==='Escape')hideContextMenu()});
 
-$('#search-input').addEventListener('input',function(e){clearTimeout(searchTimeout);var q=e.target.value.trim();searchTimeout=setTimeout(function(){currentSearchQuery=q;q?loadArticles({search:q}):setView(currentView)},300)});
+$('#search-input').addEventListener('input',function(e){clearTimeout(searchTimeout);var q=e.target.value.trim();searchTimeout=setTimeout(function(){currentSearchQuery=q;if(q){loadArticles({search:q})}else{reloadCurrentView()}},300)});
 $('#modal-overlay').addEventListener('click',function(e){if(e.target===e.currentTarget)hideModal()});
 
 document.addEventListener('keydown',function(e){
