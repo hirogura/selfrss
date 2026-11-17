@@ -5,8 +5,6 @@
 - サーバー: Node.js + Fastify + better-sqlite3
 - 自動更新: 30分ごとに全フィードを取得（node-cron）
 
-<img width="1024" height="558" alt="Image" src="https://github.com/user-attachments/assets/65455046-c7d6-4bbb-93f5-da13eef3fa50" />
-
 ## 主な機能
 
 ### 記事を読む
