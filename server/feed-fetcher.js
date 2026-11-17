@@ -71,8 +71,8 @@ async function processItems(items, feedId, insertArticle) {
       if (typeof url === 'object' && url !== null) url = url._ || url.href || url['#'];
       if (typeof url !== 'string' || !url) return null;
       let content = null;
-      if (item.content) content = extractRssContent(item.content);
-      if (!content && item['content:encoded']) content = extractRssContent(item['content:encoded']);
+      if (item['content:encoded']) content = extractRssContent(item['content:encoded']);
+      if (!content && item.content) content = extractRssContent(item.content);
       if (!content || (content && content.length < 1000)) {
         const fullText = await fetchFullText(url);
         if (fullText && fullText.length > (content ? content.length : 0)) content = fullText;
