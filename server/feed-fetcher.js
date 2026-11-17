@@ -73,6 +73,7 @@ async function processItems(items, feedId, insertArticle) {
       let content = null;
       if (item['content:encoded']) content = extractRssContent(item['content:encoded']);
       if (!content && item.content) content = extractRssContent(item.content);
+      if (!content && item.description) content = extractRssContent(item.description);
       if (!content || (content && content.length < 1000)) {
         const fullText = await fetchFullText(url);
         if (fullText && fullText.length > (content ? content.length : 0)) content = fullText;
