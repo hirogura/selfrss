@@ -63,6 +63,7 @@ function renderFeedList(feeds, folders) {
       const el = document.createElement('div');
       el.className = 'feed-item' + (currentView === 'feed' && currentFeedId === feed.id ? ' active' : '');
       el.dataset.feedId = feed.id;
+      el.dataset.feedUrl = feed.url;
       el.innerHTML = '<span class="feed-title">' + esc(feed.title) + '</span>' + (feed.unread_count ? '<span class="badge">' + feed.unread_count + '</span>' : '');
       el.addEventListener('click', (function(id,title){return function(){selectFeed(id,title)}})(feed.id,feed.title));
       container.appendChild(el);
@@ -571,6 +572,44 @@ async function changeFeedCategory(feedId){
   if(feed)await openChangeCategoryModal(feed);
 }
 
+var toastTimeout=null;
+function showToast(message){
+  var toast=$('#toast');
+  if(!toast){toast=document.createElement('div');toast.id='toast';toast.className='toast';document.body.appendChild(toast);}
+  toast.textContent=message;
+  toast.classList.add('show');
+  clearTimeout(toastTimeout);
+  toastTimeout=setTimeout(function(){toast.classList.remove('show')},2200);
+}
+
+function copyFeedUrl(url){
+  if(!url)return;
+  function fallback(){
+    var ta=document.createElement('textarea');
+    ta.value=url;
+    ta.setAttribute('readonly','');
+    ta.style.position='fixed';
+    ta.style.top='-1000px';
+    ta.style.opacity='0';
+    document.body.appendChild(ta);
+    ta.focus();ta.select();
+    var ok=false;
+    try{ok=document.execCommand('copy')}catch(e){}
+    document.body.removeChild(ta);
+    return ok;
+  }
+  function done(){showToast('フィードURLをコピーしました')}
+  if(navigator.clipboard&&navigator.clipboard.writeText){
+    navigator.clipboard.writeText(url).then(done).catch(function(){
+      if(fallback())done();else window.prompt('フィードURLをコピー',url);
+    });
+  }else if(fallback()){
+    done();
+  }else{
+    window.prompt('フィードURLをコピー',url);
+  }
+}
+
 $('#btn-delete-feed').addEventListener('click', async function() {
   if(currentView==='folder'&&currentFolderId) deleteFolderById(currentFolderId);
   else if(currentFeedId) deleteFeedById(currentFeedId);
@@ -608,8 +647,10 @@ $('#feed-list').addEventListener('contextmenu',function(e){
     ]);
   }else{
     var feedId=parseInt(feedEl.dataset.feedId);
+    var feedUrl=feedEl.dataset.feedUrl;
     showContextMenu(e.clientX,e.clientY,[
       {label:'カテゴリー変更',action:function(){changeFeedCategory(feedId)}},
+      {label:'フィードURL',action:function(){copyFeedUrl(feedUrl)}},
       {label:'削除',danger:true,action:function(){deleteFeedById(feedId)}}
     ]);
   }

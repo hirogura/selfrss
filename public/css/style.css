@@ -116,6 +116,8 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);height:100vh
 .context-menu-item{display:flex;align-items:center;gap:8px;width:100%;padding:8px 12px;border:none;background:none;color:var(--text);cursor:pointer;border-radius:4px;font-family:var(--font);font-size:13px;text-align:left}
 .context-menu-item:hover{background:var(--hover)}
 .context-menu-item.danger{color:#dc2626}
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(8px);background:var(--text);color:var(--bg);padding:9px 16px;border-radius:var(--radius);font-size:13px;font-family:var(--font);box-shadow:0 4px 16px rgba(0,0,0,.2);opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;z-index:300;max-width:80vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 ::-webkit-scrollbar{width:6px}
 ::-webkit-scrollbar-track{background:transparent}
 ::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
